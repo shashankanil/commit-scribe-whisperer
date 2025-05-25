@@ -9,7 +9,72 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      commit_sessions: {
+        Row: {
+          commits_data: Json
+          created_at: string
+          date_range: Json
+          github_username: string
+          id: string
+          repositories: Json
+          session_name: string
+          total_commits: number
+          user_id: string
+        }
+        Insert: {
+          commits_data: Json
+          created_at?: string
+          date_range: Json
+          github_username: string
+          id?: string
+          repositories: Json
+          session_name: string
+          total_commits?: number
+          user_id: string
+        }
+        Update: {
+          commits_data?: Json
+          created_at?: string
+          date_range?: Json
+          github_username?: string
+          id?: string
+          repositories?: Json
+          session_name?: string
+          total_commits?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          github_access_token: string | null
+          github_username: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          github_access_token?: string | null
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          github_access_token?: string | null
+          github_username?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,17 +7,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar, Download, Github, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import DateRangePicker from "@/components/DateRangePicker";
-import CommitExporter from "@/components/CommitExporter";
+import AuthButton from "@/components/AuthButton";
+import CommitFilter from "@/components/CommitFilter";
+import EnhancedCommitExporter from "@/components/EnhancedCommitExporter";
 
 const Index = () => {
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
   const [username, setUsername] = useState("");
   const [repositories, setRepositories] = useState<any[]>([]);
   const [selectedRepo, setSelectedRepo] = useState("");
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date } | null>(null);
   const [commits, setCommits] = useState<any[]>([]);
+  const [filteredCommits, setFilteredCommits] = useState<any[]>([]);
+  const [tokenCount, setTokenCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
+  const [detailLevel, setDetailLevel] = useState(3);
+  const [selectedRepos, setSelectedRepos] = useState<string[]>([]);
   const { toast } = useToast();
+
+  const handleAuthChange = (currentUser: any, currentProfile: any) => {
+    setUser(currentUser);
+    setProfile(currentProfile);
+    if (currentProfile?.github_username) {
+      setUsername(currentProfile.github_username);
+    }
+  };
+
+  const handleFilterChange = (filtered: any[], tokens: number) => {
+    setFilteredCommits(filtered);
+    setTokenCount(tokens);
+  };
 
   const fetchRepositories = async () => {
     if (!username.trim()) {
@@ -91,14 +111,20 @@ const Index = () => {
         
         if (pageCommits.length === 0) break;
         
-        allCommits = [...allCommits, ...pageCommits];
+        // Add repository info to each commit
+        const commitsWithRepo = pageCommits.map((commit: any) => ({
+          ...commit,
+          repository: { name: selectedRepo }
+        }));
+        
+        allCommits = [...allCommits, ...commitsWithRepo];
         page++;
 
-        // If we got less than perPage commits, we've reached the end
         if (pageCommits.length < perPage) break;
       }
 
       setCommits(allCommits);
+      setFilteredCommits(allCommits);
       toast({
         title: "Commits loaded",
         description: `Found ${allCommits.length} commits in the selected date range`,
@@ -120,53 +146,58 @@ const Index = () => {
         <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
             <Github className="h-8 w-8 text-green-400" />
-            <h1 className="text-4xl font-bold text-white">GitHub Commit Extractor</h1>
+            <h1 className="text-4xl font-bold text-white">Enhanced GitHub Commit Extractor</h1>
           </div>
           <p className="text-gray-300 text-lg">
-            Extract and export your GitHub commits in LLM-friendly format
+            OAuth authentication, intelligent filtering, and LLM-optimized commit export
           </p>
         </div>
 
         <div className="max-w-4xl mx-auto space-y-6">
-          {/* Username Input */}
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white flex items-center gap-2">
-                <Github className="h-5 w-5" />
-                GitHub Username
-              </CardTitle>
-              <CardDescription className="text-gray-400">
-                Enter your GitHub username to fetch repositories
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex gap-4">
-                <div className="flex-1">
-                  <Label htmlFor="username" className="text-gray-200">Username</Label>
-                  <Input
-                    id="username"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="octocat"
-                    className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
-                  />
+          {/* Authentication */}
+          <AuthButton onAuthChange={handleAuthChange} />
+
+          {/* Username Input - show only if not authenticated or no profile */}
+          {(!user || !profile?.github_username) && (
+            <Card className="bg-gray-800 border-gray-700">
+              <CardHeader>
+                <CardTitle className="text-white flex items-center gap-2">
+                  <Github className="h-5 w-5" />
+                  GitHub Username
+                </CardTitle>
+                <CardDescription className="text-gray-400">
+                  Enter a GitHub username to fetch repositories
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex gap-4">
+                  <div className="flex-1">
+                    <Label htmlFor="username" className="text-gray-200">Username</Label>
+                    <Input
+                      id="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="octocat"
+                      className="bg-gray-700 border-gray-600 text-white placeholder-gray-400"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button 
+                      onClick={fetchRepositories}
+                      disabled={loadingRepos}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {loadingRepos ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Load Repos"
+                      )}
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-end">
-                  <Button 
-                    onClick={fetchRepositories}
-                    disabled={loadingRepos}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {loadingRepos ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Load Repos"
-                    )}
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Repository Selection */}
           {repositories.length > 0 && (
@@ -239,13 +270,25 @@ const Index = () => {
             </div>
           )}
 
-          {/* Commit Results */}
+          {/* Commit Filter */}
           {commits.length > 0 && (
-            <CommitExporter 
-              commits={commits} 
+            <CommitFilter
+              repositories={repositories.filter(repo => commits.some(c => c.repository?.name === repo.name))}
+              commits={commits}
+              onFilterChange={handleFilterChange}
+            />
+          )}
+
+          {/* Enhanced Commit Export */}
+          {filteredCommits.length > 0 && (
+            <EnhancedCommitExporter
+              commits={commits}
+              filteredCommits={filteredCommits}
               username={username}
-              repository={selectedRepo}
+              selectedRepos={selectedRepos}
               dateRange={dateRange!}
+              detailLevel={detailLevel}
+              tokenCount={tokenCount}
             />
           )}
         </div>
